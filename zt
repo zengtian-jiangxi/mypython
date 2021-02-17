@@ -1,0 +1,109 @@
+import requests
+from lxml import etree
+import random
+import pymysql
+
+list1=['a','b','c','d','e','f','g','h','i','j','k','l','n','o','p','q','r','s','t','u','v','w','x','y','z']
+
+#随机生成数据库表
+def mysql():
+    wood=pymysql.Connect(host='localhost',user='root',password='root',db='we')
+    random.shuffle(list1)
+    data=random.sample(list1,random.randint(3,9))
+    data=''.join(data)
+    we=wood.cursor()
+    sql='''create table {}(
+    name varchar(20),
+    content text);
+'''.format(data)
+    we.execute(sql)
+    we.close()
+    wood.close()
+    return data
+
+#将小说名字，图片对应的表面导入books表中
+def books(book_name,author,data):
+    book_name=book_name
+    author=author
+    data=data
+    photo=None
+    wood=pymysql.Connect(host='localhost',user='root',password='root',db='we')
+    we=wood.cursor()
+    sql='insert into books values("%s","%s","%s","%s")'%(book_name,author,data,photo)
+    we.execute(sql)
+    wood.commit()
+    we.close()
+    wood.close()
+
+#将小说文本数据导入随机表中
+def dao(item,data):
+    name=data
+    item=item
+    wood = pymysql.Connect(host='localhost', user='root', password='root', db='we')
+    we=wood.cursor()
+    sql='insert into %s values ("%s","%s")'%(name,item['name'],item['text'])
+    we.execute(sql)
+    wood.commit()
+    we.close()
+    wood.close()
+#解析图片
+# def fun(tu):
+#     tu=tu
+#     weed=requests.get(url=tu,headers=headers)
+#     tupian=weed.content
+#     return tupian
+#获取小说内容
+def fun3(url_,name):
+    url_=url_
+    name=name
+    wood=requests.get(url=url_,headers=headers)
+    we=etree.HTML(wood.text)
+    text=we.xpath('//div[@id="content"]/text()')
+    text=''.join(text).replace('全本小说网 www.qb50.com，最快更新最新章节！','')
+    item={}
+    item['name']=name
+    item['text']=text
+    return item
+#获取小说的详细链接
+def fun2(next_url,book_name):
+    next_url=next_url
+    book_name=book_name
+    # photo=photo
+    headers = {
+        'User-Agent': 'zilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36 Edg/88.0.705.63'}
+    wwwd = requests.get(url=next_url, headers=headers)
+    wwwd.encoding=wwwd.apparent_encoding
+    we=etree.HTML(wwwd.text)
+
+    author=we.xpath('//div[@id="info"]/h1/small/a/text()')[0]
+    all_list=we.xpath('//div[@class="zjbox"]/dl[@class="zjlist"]/dd')
+
+    #创建随机表,并获取表名
+    data=mysql()
+    books(book_name,author,data)
+    for li in all_list:
+        try:
+            url_=next_url+li.xpath('./a/@href')[0]
+            name=li.xpath('./a/text()')[0]
+            # 小说每一章节详细数据
+            item=fun3(url_,name)
+            dao(item,data)
+            print('爬取成功',item['name'])
+        except:
+            continue
+
+
+
+for i in range(1,8):
+    url='https://www.qb50.com/fenlei/{}_1/'.format(i)
+    headers={'User-Agent':'zilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36 Edg/88.0.705.63'}
+    wood=requests.get(url=url,headers=headers)
+    we=etree.HTML(wood.text)
+    all_list=we.xpath('//div[@class="shu_cont"]/div[@class="shu_box"]')
+    for li in all_list:
+        book_name=li.xpath('./div[2]/h4/a/text()')[0]
+        next_url=li.xpath('./div[2]/h4/a/@href')[0]
+        tu=li.xpath('./div[1]/a/img/@src')[0]
+        # photo=fun(tu)
+        fun2(next_url,book_name)
+
